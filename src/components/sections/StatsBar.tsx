@@ -7,7 +7,7 @@ import {
 	DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { formatBytes } from '@/utils'
@@ -52,7 +52,7 @@ interface StatsBarProps {
 	}
 }
 
-export const StatsBar = ({ displayOptions, setDisplayOptions, stats, loading, nodes, billing }: StatsBarProps) => {
+export const StatsBar = ({ displayOptions, setDisplayOptions, stats, loading, billing }: StatsBarProps) => {
 	const isMobile = useIsMobile()
 	const [time, setTime] = useState(new Date())
 	const { enableMonthlyRenewalCalculation } = useAppConfig()
