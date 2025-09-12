@@ -169,6 +169,44 @@
   .theme-text-muted {
     @apply text-(--theme-text-muted-color);
   }
+
+  /* 精致滚动条样式（跨浏览器） */
+  .nice-scrollbar {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgb(from var(--accent-8) r g b / 0.6) transparent; /* Firefox */
+  }
+
+  .nice-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .nice-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .nice-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(from var(--accent-8) r g b / 0.6);
+    border-radius: 9999px;
+    border: 2px solid transparent; /* 产生内边距效果 */
+    background-clip: content-box;
+  }
+
+  .nice-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgb(from var(--accent-9) r g b / 0.8);
+  }
+
+  .dark .nice-scrollbar {
+    scrollbar-color: rgb(from var(--accent-7) r g b / 0.6) transparent;
+  }
+
+  .dark .nice-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(from var(--accent-7) r g b / 0.6);
+  }
+
+  .dark .nice-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: rgb(from var(--accent-8) r g b / 0.8);
+  }
 }
 
 /* 背景图片伪元素 */
