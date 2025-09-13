@@ -82,6 +82,7 @@ const HomePage: React.FC<HomePageProps> = ({ searchTerm, setSearchTerm }) => {
 		const now = new Date()
 		const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
 		const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+        const formatAmount = (amount: number) => Math.round(amount * 100) / 100;
 
 		// 辅助：在区间内累计续费，并返回事件明细
 		const buildRenewalSummary = (start: Date, end: Date) => {
@@ -103,8 +104,8 @@ const HomePage: React.FC<HomePageProps> = ({ searchTerm, setSearchTerm }) => {
 					baseMs = baseMs + k * periodMs
 				}
 				for (let t = baseMs; t <= endMs; t += periodMs) {
-					const converted = convertCurrency(price, currency)
-					total += converted
+				const converted = formatAmount(convertCurrency(price, currency)); // 转换后立即处理精度
+				total = formatAmount(total + converted); // 累加后再次处理精度
 					events.push({ name, date: new Date(t), amount: converted })
 				}
 			}
@@ -113,30 +114,73 @@ const HomePage: React.FC<HomePageProps> = ({ searchTerm, setSearchTerm }) => {
 		}
 
 		// 1) 月付金额 第一行：节点折算为30天合计
-		const monthlyTotal = filteredNodes.reduce((acc, n) => acc + calculateMonthlyRenewalWithConversion(n.price, n.currency, n.billing_cycle), 0)
+		const monthlyTotal = formatAmount(
+		  filteredNodes.reduce((acc, n) =>
+		    formatAmount(acc + calculateMonthlyRenewalWithConversion(n.price, n.currency, n.billing_cycle)),
+		  0)
+		)
 
 		// 1) 月付金额 第二行：本月区间续费
 		const { total: monthlyRemaining, events: monthlyEvents } = buildRenewalSummary(now, endOfMonth)
 
 		// 2) 节点总金额 第一行：节点标价按当前货币合计
-		const nodesSumPrice = filteredNodes.reduce((acc, n) => (n.price && n.price > 0 ? acc + convertCurrency(n.price, n.currency) : acc), 0)
+        const nodesSumPrice = formatAmount(
+          filteredNodes.reduce((acc, n) => {
+            if (!n.price || n.price <= 0) return acc;
+            const converted = convertCurrency(n.price, n.currency);
+
+            let annual = 0;
+            if (n.billing_cycle === 30 || n.billing_cycle === 31) {
+              // 月付：直接 ×12
+              annual = converted * 12;
+            } else if (n.billing_cycle === 365) {
+              // 年付：原价
+              annual = converted;
+            } else if (n.billing_cycle && n.billing_cycle > 0) {
+              // 其他周期按天数折算成年
+              annual = converted * (365 / n.billing_cycle);
+            } else {
+              // 异常或缺失：按一次性算
+              annual = converted;
+            }
+
+            return acc + annual;
+          }, 0)
+        );
 
 		// 2) 节点总金额 第二行：年内区间续费（聚合）
 		const { total: nodesRemainingYear, events: yearEvents } = buildRenewalSummary(now, endOfYear)
 		const yearAggMap = yearEvents.reduce<Record<string, { name: string; amount: number }>>((acc, evt) => {
-			acc[evt.name] = acc[evt.name] ? { name: evt.name, amount: acc[evt.name].amount + evt.amount } : { name: evt.name, amount: evt.amount }
+			acc[evt.name] = acc[evt.name]
+			  ? { name: evt.name, amount: formatAmount(acc[evt.name].amount + evt.amount) }
+			  : { name: evt.name, amount: formatAmount(evt.amount) }
 			return acc
 		}, {})
 		const yearPerNode = Object.values(yearAggMap).sort((a, b) => b.amount - a.amount)
 
 		// 明细：按节点月费、节点标价
 		const monthlyPerNode = filteredNodes
-			.map(n => ({ name: n.name, amount: calculateMonthlyRenewalWithConversion(n.price, n.currency, n.billing_cycle) }))
+			.map(n => ({ name: n.name, amount: formatAmount(calculateMonthlyRenewalWithConversion(n.price, n.currency, n.billing_cycle)) }))
 			.sort((a, b) => b.amount - a.amount)
-		const nodesPriceList = filteredNodes
-			.filter(n => n.price && n.price > 0)
-			.map(n => ({ name: n.name, amount: convertCurrency(n.price, n.currency) }))
-			.sort((a, b) => b.amount - a.amount)
+        const nodesPriceList = filteredNodes
+          .filter(n => n.price && n.price > 0)
+          .map(n => {
+            const converted = convertCurrency(n.price, n.currency);
+            let multiplier = 1;
+
+            if (n.billing_cycle === 30 || n.billing_cycle === 31) {
+              multiplier = 12; // 月付 → 12 个月
+            } else if (n.billing_cycle === 365) {
+              multiplier = 1; // 年付 → 直接用
+            } else if (n.billing_cycle > 0) {
+              multiplier = 365 / n.billing_cycle; // 其他周期折算成年
+            }
+
+            const annual = formatAmount(converted * multiplier);
+            return { name: n.name, amount: annual };
+          })
+          .sort((a, b) => b.amount - a.amount);
+
 
 		return {
 			monthlyTotal,
